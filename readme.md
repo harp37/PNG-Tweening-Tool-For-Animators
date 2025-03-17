@@ -12,12 +12,7 @@ A powerful browser-based tool for creating smooth animations by generating in-be
 - One-click download of all generated frames
 - No installation required - works entirely in your browser
 
-🚀 **Getting Started**
-- Online Version
-- The easiest way to use this tool is through the online version at: https://pngtweening.example.com
-- Local Installation
-
-**To run this tool locally:**
+🚀 **To run this tool locally:**
 - Clone this repository:
 - Copygit clone https://github.com/harp37/PNG-Tweening-Tool-For-Animators.git
 - Navigate to the project folder:
