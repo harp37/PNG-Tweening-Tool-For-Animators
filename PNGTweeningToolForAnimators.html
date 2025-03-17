@@ -284,6 +284,19 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
+        .method-option.advanced::after {
+            content: "Advanced";
+            position: absolute;
+            bottom: -7px;
+            right: -7px;
+            background-color: var(--accent-color);
+            color: white;
+            font-size: 0.65rem;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
         /* Animation preview styles */
         .animation-preview-section {
             margin-top: 30px;
@@ -418,6 +431,110 @@
             border-radius: 50%;
             transform: translate(-50%, -50%);
         }
+
+        /* Method-specific options */
+        .method-specific-options {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 1px solid var(--secondary-color);
+            border-radius: var(--border-radius);
+            display: none;
+        }
+
+        .method-specific-options.visible {
+            display: block;
+        }
+
+        .option-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .option-label {
+            min-width: 120px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .option-slider {
+            flex: 1;
+        }
+
+        .option-value {
+            width: 40px;
+            text-align: center;
+        }
+
+        /* Loading indicator */
+        .loading {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(74, 107, 175, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .method-info {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+            display: none;
+        }
+
+        .method-info.visible {
+            display: block;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -458,9 +575,37 @@
                         <div class="method-options">
                             <div class="method-option selected" data-method="crossfade">Crossfade</div>
                             <div class="method-option" data-method="pixelmotion">Pixel Motion</div>
+                            <div class="method-option" data-method="morphological">Morphological</div>
                             <div class="method-option" data-method="dissolve">Dissolve</div>
                             <div class="method-option" data-method="wipe">Directional Wipe</div>
                             <div class="method-option" data-method="zoom">Zoom Blend</div>
+                        </div>
+
+                        <div id="methodInfo" class="method-info">
+                            Crossfade: Simple opacity blending between frames. Good for smooth transitions.
+                        </div>
+
+                        <!-- Method-specific options -->
+                        <div id="morphologicalOptions" class="method-specific-options">
+                            <div class="option-row">
+                                <span class="option-label">Edge Detection:</span>
+                                <input type="range" min="0" max="100" value="50" class="slider option-slider" id="edgeIntensity">
+                                <span class="option-value" id="edgeIntensityValue">50</span>
+                            </div>
+                            <div class="option-row">
+                                <span class="option-label">Morph Strength:</span>
+                                <input type="range" min="0" max="100" value="70" class="slider option-slider" id="morphStrength">
+                                <span class="option-value" id="morphStrengthValue">70</span>
+                            </div>
+                            <div class="option-row tooltip">
+                                <span class="option-label">Process Quality:</span>
+                                <select id="morphQuality" class="playback-select">
+                                    <option value="fast">Fast</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High (Slower)</option>
+                                </select>
+                                <span class="tooltip-text">Higher quality provides better results but takes longer to process.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -504,21 +649,33 @@
             <div class="preview-container">
                 <div class="preview-title">Starting Frame</div>
                 <img id="startingPngPreview" class="preview-image">
+                <div class="loading" id="loading1">
+                    <div class="loading-spinner"></div>
+                </div>
             </div>
             
             <div class="preview-container">
                 <div class="preview-title">In-Between 1</div>
                 <img id="inBetween1Preview" class="preview-image">
+                <div class="loading" id="loading2">
+                    <div class="loading-spinner"></div>
+                </div>
             </div>
             
             <div class="preview-container">
                 <div class="preview-title">In-Between 2</div>
                 <img id="inBetween2Preview" class="preview-image">
+                <div class="loading" id="loading3">
+                    <div class="loading-spinner"></div>
+                </div>
             </div>
             
             <div class="preview-container">
                 <div class="preview-title">Ending Frame</div>
                 <img id="endingPngPreview" class="preview-image">
+                <div class="loading" id="loading4">
+                    <div class="loading-spinner"></div>
+                </div>
             </div>
         </div>
         
@@ -530,6 +687,9 @@
                     <div class="progress-bar" id="progressBar"></div>
                 </div>
                 <div class="frame-info" id="frameInfo">Frame 0/0</div>
+                <div class="loading" id="animationLoading">
+                    <div class="loading-spinner"></div>
+                </div>
             </div>
             <div class="animation-controls">
                 <button class="animation-button" id="playButton" disabled>Play Animation</button>
@@ -544,6 +704,7 @@
         <canvas id="sourceCanvas1"></canvas>
         <canvas id="sourceCanvas2"></canvas>
         <canvas id="processingCanvas"></canvas>
+        <canvas id="tempCanvas"></canvas>
     </div>
 
     <script>
@@ -564,6 +725,13 @@
         const frameNumberInput = document.getElementById('frameNumberInput');
         const statusMessage = document.getElementById('statusMessage');
         const methodOptions = document.querySelectorAll('.method-option');
+        const methodInfo = document.getElementById('methodInfo');
+        const morphologicalOptions = document.getElementById('morphologicalOptions');
+        const edgeIntensity = document.getElementById('edgeIntensity');
+        const edgeIntensityValue = document.getElementById('edgeIntensityValue');
+        const morphStrength = document.getElementById('morphStrength');
+        const morphStrengthValue = document.getElementById('morphStrengthValue');
+        const morphQuality = document.getElementById('morphQuality');
         const animationPreview = document.getElementById('animationPreview');
         const playButton = document.getElementById('playButton');
         const pauseButton = document.getElementById('pauseButton');
@@ -575,14 +743,27 @@
         const easingVisualization = document.getElementById('easingVisualization');
         const easingCurve = document.getElementById('easingCurve');
         const easingPoint = document.getElementById('easingPoint');
+        const loadingElements = document.querySelectorAll('.loading');
 
         // Canvas elements for processing
         const sourceCanvas1 = document.getElementById('sourceCanvas1');
         const sourceCanvas2 = document.getElementById('sourceCanvas2');
         const processingCanvas = document.getElementById('processingCanvas');
+        const tempCanvas = document.getElementById('tempCanvas');
         const sourceCtx1 = sourceCanvas1.getContext('2d', { willReadFrequently: true });
         const sourceCtx2 = sourceCanvas2.getContext('2d', { willReadFrequently: true });
         const processingCtx = processingCanvas.getContext('2d', { willReadFrequently: true });
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+        // Method descriptions
+        const methodDescriptions = {
+            'crossfade': 'Crossfade: Simple opacity blending between frames. Good for smooth transitions.',
+            'pixelmotion': 'Pixel Motion: Simulates movement of pixels between frames. Good for objects that change position.',
+            'morphological': 'Morphological: Advanced shape-based transformation that morphs objects from one form to another.',
+            'dissolve': 'Dissolve: Film-like dissolve transition with noise patterns. Creates a disintegration effect.',
+            'wipe': 'Directional Wipe: Classic wipe transition revealing the second image gradually from one side.',
+            'zoom': 'Zoom Blend: Combines zooming and fading effects for a dynamic transition with depth.'
+        };
 
         // Store image data
         let imageData = {
@@ -666,7 +847,29 @@
                 methodOptions.forEach(opt => opt.classList.remove('selected'));
                 this.classList.add('selected');
                 currentMethod = this.getAttribute('data-method');
+                
+                // Update method info
+                methodInfo.textContent = methodDescriptions[currentMethod] || '';
+                methodInfo.classList.add('visible');
+                
+                // Show/hide method-specific options
+                document.querySelectorAll('.method-specific-options').forEach(el => {
+                    el.classList.remove('visible');
+                });
+                
+                if (currentMethod === 'morphological') {
+                    morphologicalOptions.classList.add('visible');
+                }
             });
+        });
+        
+        // Morphological options
+        edgeIntensity.addEventListener('input', function() {
+            edgeIntensityValue.textContent = this.value;
+        });
+        
+        morphStrength.addEventListener('input', function() {
+            morphStrengthValue.textContent = this.value;
         });
         
         // Easing function selection
@@ -786,6 +989,8 @@
             sourceCanvas2.height = imageData.height;
             processingCanvas.width = imageData.width;
             processingCanvas.height = imageData.height;
+            tempCanvas.width = imageData.width;
+            tempCanvas.height = imageData.height;
             
             // Draw images to source canvases
             sourceCtx1.clearRect(0, 0, imageData.width, imageData.height);
@@ -802,6 +1007,13 @@
             sourceCtx2.drawImage(imageData.second, x2, y2);
         }
 
+        // Function to show loading spinner
+        function showLoading(show) {
+            loadingElements.forEach(element => {
+                element.style.display = show ? 'flex' : 'none';
+            });
+        }
+
         // Function to generate in-between frames
         function generateInBetweenFrames() {
             if (!imageData.first || !imageData.second) {
@@ -812,71 +1024,88 @@
             const numFrames = parseInt(frameNumberInput.value);
             statusMessage.textContent = `Generating ${numFrames} in-between frames using ${currentMethod} method...`;
             
+            // Show loading indicators
+            showLoading(true);
+            
             // Reset previous frames
             imageData.inBetweenFrames = [];
             
-            // Create frames based on the selected method and easing function
-            for (let i = 0; i < numFrames; i++) {
-                // Calculate raw ratio for this frame (0 to 1)
-                const rawRatio = (i + 1) / (numFrames + 1);
-                
-                // Apply selected easing function
-                const easing = easingFunctions[easingFunction.value] || easingFunctions.linear;
-                const ratio = easing(rawRatio);
-                
-                // Generate the frame based on the selected method
-                processingCtx.clearRect(0, 0, imageData.width, imageData.height);
-                
-                let frameDataUrl;
-                switch (currentMethod) {
-                    case 'crossfade':
-                        frameDataUrl = generateCrossfadeFrame(ratio);
-                        break;
-                    case 'pixelmotion':
-                        frameDataUrl = generatePixelMotionFrame(ratio);
-                        break;
-                    case 'dissolve':
-                        frameDataUrl = generateDissolveFrame(ratio);
-                        break;
-                    case 'wipe':
-                        frameDataUrl = generateWipeFrame(ratio);
-                        break;
-                    case 'zoom':
-                        frameDataUrl = generateZoomFrame(ratio);
-                        break;
-                    default:
-                        frameDataUrl = generateCrossfadeFrame(ratio);
+            // Use setTimeout to keep UI responsive during processing
+            setTimeout(() => {
+                // Create frames based on the selected method and easing function
+                try {
+                    for (let i = 0; i < numFrames; i++) {
+                        // Calculate raw ratio for this frame (0 to 1)
+                        const rawRatio = (i + 1) / (numFrames + 1);
+                        
+                        // Apply selected easing function
+                        const easing = easingFunctions[easingFunction.value] || easingFunctions.linear;
+                        const ratio = easing(rawRatio);
+                        
+                        // Generate the frame based on the selected method
+                        processingCtx.clearRect(0, 0, imageData.width, imageData.height);
+                        
+                        let frameDataUrl;
+                        switch (currentMethod) {
+                            case 'crossfade':
+                                frameDataUrl = generateCrossfadeFrame(ratio);
+                                break;
+                            case 'pixelmotion':
+                                frameDataUrl = generatePixelMotionFrame(ratio);
+                                break;
+                            case 'morphological':
+                                frameDataUrl = generateMorphologicalFrame(ratio);
+                                break;
+                            case 'dissolve':
+                                frameDataUrl = generateDissolveFrame(ratio);
+                                break;
+                            case 'wipe':
+                                frameDataUrl = generateWipeFrame(ratio);
+                                break;
+                            case 'zoom':
+                                frameDataUrl = generateZoomFrame(ratio);
+                                break;
+                            default:
+                                frameDataUrl = generateCrossfadeFrame(ratio);
+                        }
+                        
+                        // Store the frame
+                        imageData.inBetweenFrames.push(frameDataUrl);
+                    }
+                    
+                    // Update the preview images (if we have enough frames)
+                    if (imageData.inBetweenFrames.length >= 2) {
+                        // For first preview, pick a frame from the first quarter
+                        const previewIndex1 = Math.min(Math.floor(numFrames * 0.25), numFrames - 1);
+                        inBetween1Preview.src = imageData.inBetweenFrames[previewIndex1];
+                        
+                        // For second preview, pick a frame from the third quarter
+                        const previewIndex2 = Math.min(Math.floor(numFrames * 0.75), numFrames - 1);
+                        inBetween2Preview.src = imageData.inBetweenFrames[previewIndex2];
+                    } else if (imageData.inBetweenFrames.length === 1) {
+                        // If we only have one frame, use it for both previews
+                        inBetween1Preview.src = imageData.inBetweenFrames[0];
+                        inBetween2Preview.src = imageData.inBetweenFrames[0];
+                    }
+                    
+                    // Enable animation controls
+                    playButton.disabled = false;
+                    pauseButton.disabled = false;
+                    loopToggleButton.disabled = false;
+                    downloadButton.disabled = false;
+                    
+                    // Set up animation frames
+                    setupAnimation();
+                    
+                    statusMessage.textContent = `Generated ${numFrames} in-between frames using ${currentMethod} method with ${easingFunction.value} easing.`;
+                } catch (error) {
+                    console.error("Error generating frames:", error);
+                    statusMessage.textContent = `Error generating frames: ${error.message}`;
+                } finally {
+                    // Hide loading indicators
+                    showLoading(false);
                 }
-                
-                // Store the frame
-                imageData.inBetweenFrames.push(frameDataUrl);
-            }
-            
-            // Update the preview images (if we have enough frames)
-            if (imageData.inBetweenFrames.length >= 2) {
-                // For first preview, pick a frame from the first quarter
-                const previewIndex1 = Math.min(Math.floor(numFrames * 0.25), numFrames - 1);
-                inBetween1Preview.src = imageData.inBetweenFrames[previewIndex1];
-                
-                // For second preview, pick a frame from the third quarter
-                const previewIndex2 = Math.min(Math.floor(numFrames * 0.75), numFrames - 1);
-                inBetween2Preview.src = imageData.inBetweenFrames[previewIndex2];
-            } else if (imageData.inBetweenFrames.length === 1) {
-                // If we only have one frame, use it for both previews
-                inBetween1Preview.src = imageData.inBetweenFrames[0];
-                inBetween2Preview.src = imageData.inBetweenFrames[0];
-            }
-            
-            // Enable animation controls
-            playButton.disabled = false;
-            pauseButton.disabled = false;
-            loopToggleButton.disabled = false;
-            downloadButton.disabled = false;
-            
-            // Set up animation frames
-            setupAnimation();
-            
-            statusMessage.textContent = `Generated ${numFrames} in-between frames using ${currentMethod} method with ${easingFunction.value} easing.`;
+            }, 100);
         }
 
         // Generate a crossfade frame
@@ -950,6 +1179,277 @@
             processingCtx.putImageData(resultData, 0, 0);
             
             return processingCanvas.toDataURL('image/png');
+        }
+
+        // Generate a morphological frame
+        function generateMorphologicalFrame(ratio) {
+            // Get parameters
+            const edgeWeight = parseInt(edgeIntensity.value) / 100;
+            const strength = parseInt(morphStrength.value) / 100;
+            const quality = morphQuality.value;
+            
+            // Quality settings
+            let scaleFactor = 1.0;
+            let blurRadius = 1;
+            switch (quality) {
+                case 'fast':
+                    scaleFactor = 0.5;
+                    blurRadius = 1;
+                    break;
+                case 'medium':
+                    scaleFactor = 0.75;
+                    blurRadius = 2;
+                    break;
+                case 'high':
+                    scaleFactor = 1.0;
+                    blurRadius = 3;
+                    break;
+            }
+            
+            // Temporary canvases for edge detection
+            const edgeCanvas1 = document.createElement('canvas');
+            const edgeCanvas2 = document.createElement('canvas');
+            
+            const width = Math.floor(imageData.width * scaleFactor);
+            const height = Math.floor(imageData.height * scaleFactor);
+            
+            edgeCanvas1.width = width;
+            edgeCanvas1.height = height;
+            edgeCanvas2.width = width;
+            edgeCanvas2.height = height;
+            
+            const edgeCtx1 = edgeCanvas1.getContext('2d');
+            const edgeCtx2 = edgeCanvas2.getContext('2d');
+            
+            // Draw scaled images to edge detection canvases
+            edgeCtx1.drawImage(sourceCanvas1, 0, 0, width, height);
+            edgeCtx2.drawImage(sourceCanvas2, 0, 0, width, height);
+            
+            // Get image data for edge detection
+            const imgData1 = edgeCtx1.getImageData(0, 0, width, height);
+            const imgData2 = edgeCtx2.getImageData(0, 0, width, height);
+            
+            // Detect edges in both images
+            const edges1 = detectEdges(imgData1, blurRadius);
+            const edges2 = detectEdges(imgData2, blurRadius);
+            
+            // Create flow field for morphing
+            const flowField = createFlowField(edges1, edges2, width, height, strength);
+            
+            // Create result canvas at original size
+            const resultCanvas = document.createElement('canvas');
+            resultCanvas.width = imageData.width;
+            resultCanvas.height = imageData.height;
+            const resultCtx = resultCanvas.getContext('2d');
+            
+            // Draw morphed image based on flow field
+            resultCtx.clearRect(0, 0, imageData.width, imageData.height);
+            
+            // Draw first image
+            resultCtx.globalAlpha = 1.0;
+            resultCtx.drawImage(sourceCanvas1, 0, 0);
+            
+            // Apply morphological transformation via displacement map
+            const imageData1Full = sourceCtx1.getImageData(0, 0, imageData.width, imageData.height);
+            const imageData2Full = sourceCtx2.getImageData(0, 0, imageData.width, imageData.height);
+            const resultData = resultCtx.getImageData(0, 0, imageData.width, imageData.height);
+            
+            // Apply flow field to create morphed image
+            for (let y = 0; y < imageData.height; y++) {
+                for (let x = 0; x < imageData.width; x++) {
+                    // Scale to flow field coordinates
+                    const flowX = Math.floor(x * scaleFactor);
+                    const flowY = Math.floor(y * scaleFactor);
+                    
+                    if (flowX < width && flowY < height) {
+                        // Get displacement from flow field
+                        const fieldIndex = (flowY * width + flowX) * 2;
+                        const dx = flowField[fieldIndex] * ratio * imageData.width * strength;
+                        const dy = flowField[fieldIndex + 1] * ratio * imageData.height * strength;
+                        
+                        // Calculate source and target positions
+                        const sourceX = Math.max(0, Math.min(imageData.width - 1, Math.round(x - dx * (1 - ratio))));
+                        const sourceY = Math.max(0, Math.min(imageData.height - 1, Math.round(y - dy * (1 - ratio))));
+                        const targetX = Math.max(0, Math.min(imageData.width - 1, Math.round(x + dx * ratio)));
+                        const targetY = Math.max(0, Math.min(imageData.height - 1, Math.round(y + dy * ratio)));
+                        
+                        // Get pixel indices
+                        const currentIdx = (y * imageData.width + x) * 4;
+                        const sourceIdx = (sourceY * imageData.width + sourceX) * 4;
+                        const targetIdx = (targetY * imageData.width + targetX) * 4;
+                        
+                        // Get edge weights
+                        const edgeX = Math.floor(x * scaleFactor);
+                        const edgeY = Math.floor(y * scaleFactor);
+                        const edgeIdx = edgeY * width + edgeX;
+                        const edgeWeight1 = edges1[edgeIdx] * edgeWeight;
+                        const edgeWeight2 = edges2[edgeIdx] * edgeWeight;
+                        
+                        // Calculate blending ratio with edge enhancement
+                        const blendingRatio = ratio + (edgeWeight1 * (1 - ratio) + edgeWeight2 * ratio) * 0.3;
+                        
+                        // Blend colors
+                        resultData.data[currentIdx] = Math.round(imageData1Full.data[sourceIdx] * (1 - blendingRatio) + imageData2Full.data[targetIdx] * blendingRatio);
+                        resultData.data[currentIdx + 1] = Math.round(imageData1Full.data[sourceIdx + 1] * (1 - blendingRatio) + imageData2Full.data[targetIdx + 1] * blendingRatio);
+                        resultData.data[currentIdx + 2] = Math.round(imageData1Full.data[sourceIdx + 2] * (1 - blendingRatio) + imageData2Full.data[targetIdx + 2] * blendingRatio);
+                        resultData.data[currentIdx + 3] = 255;
+                    }
+                }
+            }
+            
+            // Put result back on canvas
+            resultCtx.putImageData(resultData, 0, 0);
+            
+            // Draw to processing canvas
+            processingCtx.clearRect(0, 0, imageData.width, imageData.height);
+            processingCtx.drawImage(resultCanvas, 0, 0);
+            
+            return processingCanvas.toDataURL('image/png');
+        }
+
+        // Create a flow field for morphological transformation
+        function createFlowField(edges1, edges2, width, height, strength) {
+            // Create flow field array (x,y displacement for each pixel)
+            const flowField = new Array(width * height * 2).fill(0);
+            
+            // Simple approach: use edge differences to guide the flow
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = y * width + x;
+                    
+                    // Calculate edge gradients
+                    const gradX1 = (edges1[idx + 1] - edges1[idx - 1]) / 2;
+                    const gradY1 = (edges1[idx + width] - edges1[idx - width]) / 2;
+                    const gradX2 = (edges2[idx + 1] - edges2[idx - 1]) / 2;
+                    const gradY2 = (edges2[idx + width] - edges2[idx - width]) / 2;
+                    
+                    // Calculate flow direction based on edge differences
+                    const flowIdx = idx * 2;
+                    flowField[flowIdx] = (gradX2 - gradX1) * strength;
+                    flowField[flowIdx + 1] = (gradY2 - gradY1) * strength;
+                    
+                    // Limit maximum displacement
+                    const magnitude = Math.sqrt(flowField[flowIdx] * flowField[flowIdx] + flowField[flowIdx + 1] * flowField[flowIdx + 1]);
+                    if (magnitude > 0.2) {
+                        flowField[flowIdx] = (flowField[flowIdx] / magnitude) * 0.2;
+                        flowField[flowIdx + 1] = (flowField[flowIdx + 1] / magnitude) * 0.2;
+                    }
+                }
+            }
+            
+            // Smooth the flow field
+            const smoothedFlow = smoothFlowField(flowField, width, height);
+            
+            return smoothedFlow;
+        }
+
+        // Smooth the flow field to prevent artifacts
+        function smoothFlowField(flowField, width, height) {
+            const smoothed = new Array(flowField.length).fill(0);
+            
+            // Simple box blur
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = (y * width + x) * 2;
+                    
+                    // Average with neighbors
+                    let sumX = 0, sumY = 0, count = 0;
+                    
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            const neighborIdx = ((y + dy) * width + (x + dx)) * 2;
+                            sumX += flowField[neighborIdx];
+                            sumY += flowField[neighborIdx + 1];
+                            count++;
+                        }
+                    }
+                    
+                    smoothed[idx] = sumX / count;
+                    smoothed[idx + 1] = sumY / count;
+                }
+            }
+            
+            return smoothed;
+        }
+
+        // Detect edges in an image (simplified Sobel operator)
+        function detectEdges(imageData, blurRadius = 1) {
+            const width = imageData.width;
+            const height = imageData.height;
+            const pixels = imageData.data;
+            
+            // Convert to grayscale and blur first
+            const grayscale = new Array(width * height);
+            
+            // Convert to grayscale
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    grayscale[y * width + x] = (pixels[idx] * 0.3 + pixels[idx + 1] * 0.59 + pixels[idx + 2] * 0.11) / 255;
+                }
+            }
+            
+            // Apply Gaussian blur to reduce noise
+            const blurred = blurGrayscale(grayscale, width, height, blurRadius);
+            
+            // Apply Sobel operator for edge detection
+            const edges = new Array(width * height).fill(0);
+            
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    // Horizontal Sobel
+                    const gx = 
+                        -1 * blurred[(y-1) * width + (x-1)] +
+                        -2 * blurred[y * width + (x-1)] +
+                        -1 * blurred[(y+1) * width + (x-1)] +
+                        1 * blurred[(y-1) * width + (x+1)] +
+                        2 * blurred[y * width + (x+1)] +
+                        1 * blurred[(y+1) * width + (x+1)];
+                    
+                    // Vertical Sobel
+                    const gy = 
+                        -1 * blurred[(y-1) * width + (x-1)] +
+                        -2 * blurred[(y-1) * width + x] +
+                        -1 * blurred[(y-1) * width + (x+1)] +
+                        1 * blurred[(y+1) * width + (x-1)] +
+                        2 * blurred[(y+1) * width + x] +
+                        1 * blurred[(y+1) * width + (x+1)];
+                    
+                    // Edge magnitude (normalized)
+                    edges[y * width + x] = Math.min(1.0, Math.sqrt(gx*gx + gy*gy));
+                }
+            }
+            
+            return edges;
+        }
+
+        // Blur grayscale image
+        function blurGrayscale(grayscale, width, height, radius) {
+            const result = new Array(width * height).fill(0);
+            
+            // Simple box blur
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let sum = 0;
+                    let count = 0;
+                    
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        for (let dx = -radius; dx <= radius; dx++) {
+                            const nx = x + dx;
+                            const ny = y + dy;
+                            
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                sum += grayscale[ny * width + nx];
+                                count++;
+                            }
+                        }
+                    }
+                    
+                    result[y * width + x] = sum / count;
+                }
+            }
+            
+            return result;
         }
 
         // Generate a dissolve frame
@@ -1161,6 +1661,9 @@
         // Initialize status message and easing visualization
         statusMessage.textContent = "Upload your starting and ending PNG images to begin.";
         updateEasingVisualization();
+        
+        // Initialize method info
+        methodInfo.classList.add('visible');
     </script>
 </body>
 </html>
