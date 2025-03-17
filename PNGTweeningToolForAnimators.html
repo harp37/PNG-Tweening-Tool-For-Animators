@@ -535,6 +535,29 @@
             visibility: visible;
             opacity: 1;
         }
+
+        /* Color palette visualization */
+        .color-palette-container {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .palette-row {
+            display: flex;
+            height: 20px;
+        }
+
+        .palette-color {
+            flex: 1;
+            height: 100%;
+        }
+
+        .palette-label {
+            font-size: 0.8rem;
+            margin-bottom: 2px;
+        }
     </style>
 </head>
 <body>
@@ -576,6 +599,7 @@
                             <div class="method-option selected" data-method="crossfade">Crossfade</div>
                             <div class="method-option" data-method="pixelmotion">Pixel Motion</div>
                             <div class="method-option" data-method="morphological">Morphological</div>
+                            <div class="method-option" data-method="colorharmonize">Color Harmonize</div>
                             <div class="method-option" data-method="dissolve">Dissolve</div>
                             <div class="method-option" data-method="wipe">Directional Wipe</div>
                             <div class="method-option" data-method="zoom">Zoom Blend</div>
@@ -605,6 +629,45 @@
                                     <option value="high">High (Slower)</option>
                                 </select>
                                 <span class="tooltip-text">Higher quality provides better results but takes longer to process.</span>
+                            </div>
+                        </div>
+
+                        <!-- Color Harmonize options -->
+                        <div id="colorHarmonizeOptions" class="method-specific-options">
+                            <div class="option-row">
+                                <span class="option-label">Color Shift:</span>
+                                <input type="range" min="0" max="100" value="75" class="slider option-slider" id="colorShiftIntensity">
+                                <span class="option-value" id="colorShiftValue">75</span>
+                            </div>
+                            <div class="option-row">
+                                <span class="option-label">Saturation:</span>
+                                <input type="range" min="0" max="200" value="100" class="slider option-slider" id="saturationLevel">
+                                <span class="option-value" id="saturationValue">100</span>%
+                            </div>
+                            <div class="option-row">
+                                <span class="option-label">Preserve Luma:</span>
+                                <input type="range" min="0" max="100" value="50" class="slider option-slider" id="preserveLuma">
+                                <span class="option-value" id="preserveLumaValue">50</span>
+                            </div>
+                            <div class="option-row tooltip">
+                                <span class="option-label">Palette Method:</span>
+                                <select id="paletteMethod" class="playback-select">
+                                    <option value="dominant">Dominant Colors</option>
+                                    <option value="average" selected>Average Shift</option>
+                                    <option value="hue">Hue Rotation</option>
+                                </select>
+                                <span class="tooltip-text">Different methods for transforming the color palette between images.</span>
+                            </div>
+                            <!-- Color Palette Visualization -->
+                            <div class="color-palette-container">
+                                <div>
+                                    <div class="palette-label">Starting Image Palette:</div>
+                                    <div class="palette-row" id="startPalette"></div>
+                                </div>
+                                <div>
+                                    <div class="palette-label">Ending Image Palette:</div>
+                                    <div class="palette-row" id="endPalette"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -655,7 +718,7 @@
             </div>
             
             <div class="preview-container">
-                <div class="preview-title">In-Between 1</div>
+                <div class="preview-title">25% Through</div>
                 <img id="inBetween1Preview" class="preview-image">
                 <div class="loading" id="loading2">
                     <div class="loading-spinner"></div>
@@ -663,7 +726,7 @@
             </div>
             
             <div class="preview-container">
-                <div class="preview-title">In-Between 2</div>
+                <div class="preview-title">75% Through</div>
                 <img id="inBetween2Preview" class="preview-image">
                 <div class="loading" id="loading3">
                     <div class="loading-spinner"></div>
@@ -727,11 +790,21 @@
         const methodOptions = document.querySelectorAll('.method-option');
         const methodInfo = document.getElementById('methodInfo');
         const morphologicalOptions = document.getElementById('morphologicalOptions');
+        const colorHarmonizeOptions = document.getElementById('colorHarmonizeOptions');
         const edgeIntensity = document.getElementById('edgeIntensity');
         const edgeIntensityValue = document.getElementById('edgeIntensityValue');
         const morphStrength = document.getElementById('morphStrength');
         const morphStrengthValue = document.getElementById('morphStrengthValue');
         const morphQuality = document.getElementById('morphQuality');
+        const colorShiftIntensity = document.getElementById('colorShiftIntensity');
+        const colorShiftValue = document.getElementById('colorShiftValue');
+        const saturationLevel = document.getElementById('saturationLevel');
+        const saturationValue = document.getElementById('saturationValue');
+        const preserveLuma = document.getElementById('preserveLuma');
+        const preserveLumaValue = document.getElementById('preserveLumaValue');
+        const paletteMethod = document.getElementById('paletteMethod');
+        const startPalette = document.getElementById('startPalette');
+        const endPalette = document.getElementById('endPalette');
         const animationPreview = document.getElementById('animationPreview');
         const playButton = document.getElementById('playButton');
         const pauseButton = document.getElementById('pauseButton');
@@ -760,6 +833,7 @@
             'crossfade': 'Crossfade: Simple opacity blending between frames. Good for smooth transitions.',
             'pixelmotion': 'Pixel Motion: Simulates movement of pixels between frames. Good for objects that change position.',
             'morphological': 'Morphological: Advanced shape-based transformation that morphs objects from one form to another.',
+            'colorharmonize': 'Color Harmonize: Transforms color palettes between images while maintaining structure. Great for style transitions.',
             'dissolve': 'Dissolve: Film-like dissolve transition with noise patterns. Creates a disintegration effect.',
             'wipe': 'Directional Wipe: Classic wipe transition revealing the second image gradually from one side.',
             'zoom': 'Zoom Blend: Combines zooming and fading effects for a dynamic transition with depth.'
@@ -772,6 +846,14 @@
             inBetweenFrames: [],
             width: 0,
             height: 0
+        };
+
+        // Color analysis data
+        let colorData = {
+            firstPalette: [],
+            secondPalette: [],
+            firstAvgHsl: { h: 0, s: 0, l: 0 },
+            secondAvgHsl: { h: 0, s: 0, l: 0 }
         };
 
         // Animation state
@@ -859,6 +941,9 @@
                 
                 if (currentMethod === 'morphological') {
                     morphologicalOptions.classList.add('visible');
+                } else if (currentMethod === 'colorharmonize') {
+                    colorHarmonizeOptions.classList.add('visible');
+                    updateColorPalettes();
                 }
             });
         });
@@ -870,6 +955,26 @@
         
         morphStrength.addEventListener('input', function() {
             morphStrengthValue.textContent = this.value;
+        });
+        
+        // Color Harmonize options
+        colorShiftIntensity.addEventListener('input', function() {
+            colorShiftValue.textContent = this.value;
+        });
+        
+        saturationLevel.addEventListener('input', function() {
+            saturationValue.textContent = this.value;
+        });
+        
+        preserveLuma.addEventListener('input', function() {
+            preserveLumaValue.textContent = this.value;
+        });
+        
+        paletteMethod.addEventListener('change', function() {
+            // Method changed - update visualization if needed
+            if (imageData.first && imageData.second) {
+                updateColorPalettes();
+            }
         });
         
         // Easing function selection
@@ -970,6 +1075,11 @@
                         
                         // Set up canvas dimensions
                         setupCanvases();
+                        
+                        // Analyze color data if needed
+                        if (currentMethod === 'colorharmonize') {
+                            analyzeColorData();
+                        }
                     }
                 };
                 img.src = e.target.result;
@@ -1014,6 +1124,137 @@
             });
         }
 
+        // Analyze color data from source images
+        function analyzeColorData() {
+            // Get pixel data
+            const imageData1 = sourceCtx1.getImageData(0, 0, imageData.width, imageData.height);
+            const imageData2 = sourceCtx2.getImageData(0, 0, imageData.width, imageData.height);
+            
+            // Extract color palettes
+            colorData.firstPalette = extractDominantColors(imageData1, 5);
+            colorData.secondPalette = extractDominantColors(imageData2, 5);
+            
+            // Calculate average HSL values
+            colorData.firstAvgHsl = calculateAverageHsl(imageData1);
+            colorData.secondAvgHsl = calculateAverageHsl(imageData2);
+            
+            // Update UI
+            updateColorPalettes();
+        }
+
+        // Extract dominant colors from image data
+        function extractDominantColors(imageData, colorCount) {
+            // Simple color quantization approach
+            const pixels = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            // Sample pixels (for performance, don't use every pixel)
+            const pixelCount = width * height;
+            const sampleRate = Math.max(1, Math.floor(pixelCount / 10000));
+            
+            // Color frequency map
+            const colorMap = new Map();
+            
+            for (let i = 0; i < pixels.length; i += 4 * sampleRate) {
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+                const a = pixels[i + 3];
+                
+                // Skip transparent pixels
+                if (a < 128) continue;
+                
+                // Quantize colors to reduce the number of unique colors
+                const qr = Math.floor(r / 16) * 16;
+                const qg = Math.floor(g / 16) * 16;
+                const qb = Math.floor(b / 16) * 16;
+                
+                const colorKey = `${qr},${qg},${qb}`;
+                
+                if (colorMap.has(colorKey)) {
+                    colorMap.set(colorKey, colorMap.get(colorKey) + 1);
+                } else {
+                    colorMap.set(colorKey, 1);
+                }
+            }
+            
+            // Sort colors by frequency
+            const sortedColors = [...colorMap.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, colorCount)
+                .map(entry => {
+                    const [r, g, b] = entry[0].split(',').map(Number);
+                    return { r, g, b };
+                });
+            
+            return sortedColors;
+        }
+
+        // Calculate average HSL values for an image
+        function calculateAverageHsl(imageData) {
+            const pixels = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            let totalH = 0, totalS = 0, totalL = 0;
+            let count = 0;
+            
+            // Sample pixels
+            const sampleRate = Math.max(1, Math.floor(width * height / 10000));
+            
+            for (let i = 0; i < pixels.length; i += 4 * sampleRate) {
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+                const a = pixels[i + 3];
+                
+                // Skip transparent pixels
+                if (a < 128) continue;
+                
+                // Convert to HSL
+                const hsl = rgbToHsl(r, g, b);
+                
+                totalH += hsl.h;
+                totalS += hsl.s;
+                totalL += hsl.l;
+                count++;
+            }
+            
+            // Calculate averages
+            return {
+                h: count > 0 ? totalH / count : 0,
+                s: count > 0 ? totalS / count : 0,
+                l: count > 0 ? totalL / count : 0
+            };
+        }
+
+        // Update color palette UI
+        function updateColorPalettes() {
+            if (!colorData.firstPalette.length || !colorData.secondPalette.length) {
+                return;
+            }
+            
+            // Clear palette displays
+            startPalette.innerHTML = '';
+            endPalette.innerHTML = '';
+            
+            // Add colors to palettes
+            colorData.firstPalette.forEach(color => {
+                const colorDiv = document.createElement('div');
+                colorDiv.className = 'palette-color';
+                colorDiv.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                startPalette.appendChild(colorDiv);
+            });
+            
+            colorData.secondPalette.forEach(color => {
+                const colorDiv = document.createElement('div');
+                colorDiv.className = 'palette-color';
+                colorDiv.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                endPalette.appendChild(colorDiv);
+            });
+        }
+
         // Function to generate in-between frames
         function generateInBetweenFrames() {
             if (!imageData.first || !imageData.second) {
@@ -1034,6 +1275,12 @@
             setTimeout(() => {
                 // Create frames based on the selected method and easing function
                 try {
+                    // For color harmonize, ensure color data is analyzed
+                    if (currentMethod === 'colorharmonize' && 
+                        (!colorData.firstPalette.length || !colorData.secondPalette.length)) {
+                        analyzeColorData();
+                    }
+                    
                     for (let i = 0; i < numFrames; i++) {
                         // Calculate raw ratio for this frame (0 to 1)
                         const rawRatio = (i + 1) / (numFrames + 1);
@@ -1055,6 +1302,9 @@
                                 break;
                             case 'morphological':
                                 frameDataUrl = generateMorphologicalFrame(ratio);
+                                break;
+                            case 'colorharmonize':
+                                frameDataUrl = generateColorHarmonizeFrame(ratio);
                                 break;
                             case 'dissolve':
                                 frameDataUrl = generateDissolveFrame(ratio);
@@ -1307,6 +1557,201 @@
             return processingCanvas.toDataURL('image/png');
         }
 
+        // Generate a color harmonize frame
+        function generateColorHarmonizeFrame(ratio) {
+            // Get parameters
+            const colorShift = parseInt(colorShiftIntensity.value) / 100;
+            const saturationMultiplier = parseInt(saturationLevel.value) / 100;
+            const preserveLumaAmount = parseInt(preserveLuma.value) / 100;
+            const method = paletteMethod.value;
+            
+            // Get pixel data from both images
+            const src1Data = sourceCtx1.getImageData(0, 0, imageData.width, imageData.height);
+            const src2Data = sourceCtx2.getImageData(0, 0, imageData.width, imageData.height);
+            const resultData = processingCtx.createImageData(imageData.width, imageData.height);
+            
+            // Process each pixel
+            for (let i = 0; i < src1Data.data.length; i += 4) {
+                // Get RGB values from source images
+                const r1 = src1Data.data[i];
+                const g1 = src1Data.data[i + 1];
+                const b1 = src1Data.data[i + 2];
+                const a1 = src1Data.data[i + 3];
+                
+                const r2 = src2Data.data[i];
+                const g2 = src2Data.data[i + 1];
+                const b2 = src2Data.data[i + 2];
+                const a2 = src2Data.data[i + 3];
+                
+                // Skip fully transparent pixels
+                if (a1 === 0 && a2 === 0) {
+                    resultData.data[i + 3] = 0;
+                    continue;
+                }
+                
+                // Convert to HSL for better color manipulation
+                const hsl1 = rgbToHsl(r1, g1, b1);
+                const hsl2 = rgbToHsl(r2, g2, b2);
+                
+                let resultHsl;
+                
+                // Different palette transformation methods
+                switch (method) {
+                    case 'dominant':
+                        // Transform based on dominant colors
+                        resultHsl = transformColorWithDominant(hsl1, ratio, colorShift);
+                        break;
+                        
+                    case 'average':
+                        // Transform based on average color shift
+                        resultHsl = transformColorWithAverage(hsl1, hsl2, ratio, colorShift);
+                        break;
+                        
+                    case 'hue':
+                        // Simple hue rotation
+                        resultHsl = {
+                            h: interpolateHue(hsl1.h, hsl2.h, ratio),
+                            s: hsl1.s * (1 - ratio) + hsl2.s * ratio * saturationMultiplier,
+                            l: preserveLumaAmount * hsl1.l + (1 - preserveLumaAmount) * (hsl1.l * (1 - ratio) + hsl2.l * ratio)
+                        };
+                        break;
+                        
+                    default:
+                        // Default to simple HSL interpolation
+                        resultHsl = {
+                            h: interpolateHue(hsl1.h, hsl2.h, ratio),
+                            s: hsl1.s * (1 - ratio) + hsl2.s * ratio * saturationMultiplier,
+                            l: hsl1.l * (1 - ratio) + hsl2.l * ratio
+                        };
+                }
+                
+                // Apply saturation multiplier
+                resultHsl.s *= saturationMultiplier;
+                
+                // Clamp values
+                resultHsl.s = Math.min(1, Math.max(0, resultHsl.s));
+                resultHsl.l = Math.min(1, Math.max(0, resultHsl.l));
+                
+                // Convert back to RGB
+                const resultRgb = hslToRgb(resultHsl.h, resultHsl.s, resultHsl.l);
+                
+                // Set result pixel
+                resultData.data[i] = resultRgb.r;
+                resultData.data[i + 1] = resultRgb.g;
+                resultData.data[i + 2] = resultRgb.b;
+                resultData.data[i + 3] = Math.max(a1, a2); // Keep highest alpha
+            }
+            
+            // Put the result on canvas
+            processingCtx.putImageData(resultData, 0, 0);
+            
+            return processingCanvas.toDataURL('image/png');
+        }
+        
+        // Transform color using dominant color palettes
+        function transformColorWithDominant(hsl, ratio, colorShift) {
+            // Find closest colors in both palettes
+            let closestColor1 = findClosestColorInPalette(hsl, colorData.firstPalette);
+            let closestColor2 = findClosestColorInPalette(hsl, colorData.secondPalette);
+            
+            // Convert to HSL
+            const closestHsl1 = rgbToHsl(closestColor1.r, closestColor1.g, closestColor1.b);
+            const closestHsl2 = rgbToHsl(closestColor2.r, closestColor2.g, closestColor2.b);
+            
+            // Calculate shift amount
+            const hueDiff = calculateHueDifference(closestHsl1.h, closestHsl2.h);
+            const satDiff = closestHsl2.s - closestHsl1.s;
+            
+            // Apply color shift
+            const newHsl = {
+                h: (hsl.h + hueDiff * ratio * colorShift) % 1.0,
+                s: Math.max(0, Math.min(1, hsl.s + satDiff * ratio * colorShift)),
+                l: hsl.l
+            };
+            
+            return newHsl;
+        }
+        
+        // Transform color using average color shift
+        function transformColorWithAverage(hsl1, hsl2, ratio, colorShift) {
+            // Calculate global color shifts
+            const globalHueDiff = calculateHueDifference(colorData.firstAvgHsl.h, colorData.secondAvgHsl.h);
+            const globalSatDiff = colorData.secondAvgHsl.s - colorData.firstAvgHsl.s;
+            
+            // Apply global shift to first color
+            const shiftedHsl1 = {
+                h: (hsl1.h + globalHueDiff * ratio * colorShift) % 1.0,
+                s: Math.max(0, Math.min(1, hsl1.s + globalSatDiff * ratio * colorShift)),
+                l: hsl1.l
+            };
+            
+            // Then interpolate between the shifted color and the second color
+            return {
+                h: interpolateHue(shiftedHsl1.h, hsl2.h, ratio),
+                s: shiftedHsl1.s * (1 - ratio) + hsl2.s * ratio,
+                l: shiftedHsl1.l * (1 - ratio) + hsl2.l * ratio
+            };
+        }
+        
+        // Find closest color in palette to given HSL color
+        function findClosestColorInPalette(hsl, palette) {
+            let closestColor = palette[0];
+            let minDistance = Number.MAX_VALUE;
+            
+            palette.forEach(color => {
+                const colorHsl = rgbToHsl(color.r, color.g, color.b);
+                const distance = calculateColorDistance(hsl, colorHsl);
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestColor = color;
+                }
+            });
+            
+            return closestColor;
+        }
+        
+        // Calculate perceptual distance between two HSL colors
+        function calculateColorDistance(hsl1, hsl2) {
+            const hueDiff = calculateHueDifference(hsl1.h, hsl2.h);
+            const satDiff = hsl1.s - hsl2.s;
+            const lightDiff = hsl1.l - hsl2.l;
+            
+            // Weight hue differences less for very low saturation colors
+            const hueWeight = (hsl1.s + hsl2.s) / 2;
+            
+            return Math.sqrt(
+                (hueDiff * hueWeight) * (hueDiff * hueWeight) * 4 + 
+                satDiff * satDiff + 
+                lightDiff * lightDiff
+            );
+        }
+        
+        // Calculate shortest difference between two hue values
+        function calculateHueDifference(h1, h2) {
+            const diff = Math.abs(h1 - h2);
+            return diff > 0.5 ? 1 - diff : diff;
+        }
+        
+        // Interpolate hue values taking the shortest path around the color wheel
+        function interpolateHue(h1, h2, ratio) {
+            // Find the shortest path around the color wheel
+            let diff = h2 - h1;
+            
+            if (Math.abs(diff) > 0.5) {
+                // Go the other way around the circle
+                if (diff > 0) {
+                    h1 += 1;
+                } else {
+                    h2 += 1;
+                }
+            }
+            
+            // Interpolate and ensure result is between 0-1
+            let result = h1 + (h2 - h1) * ratio;
+            return ((result % 1) + 1) % 1; // Ensure result is between 0-1
+        }
+
         // Create a flow field for morphological transformation
         function createFlowField(edges1, edges2, width, height, strength) {
             // Create flow field array (x,y displacement for each pixel)
@@ -1543,6 +1988,64 @@
             processingCtx.globalAlpha = 1.0;
             
             return processingCanvas.toDataURL('image/png');
+        }
+
+        // RGB to HSL conversion
+        function rgbToHsl(r, g, b) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            
+            if (max === min) {
+                h = s = 0; // achromatic
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            
+            return { h, s, l };
+        }
+        
+        // HSL to RGB conversion
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+            
+            if (s === 0) {
+                r = g = b = l; // achromatic
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            
+            return {
+                r: Math.round(r * 255),
+                g: Math.round(g * 255),
+                b: Math.round(b * 255)
+            };
         }
 
         // Update easing visualization
